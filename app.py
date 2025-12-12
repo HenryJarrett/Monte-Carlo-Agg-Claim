@@ -1,5 +1,4 @@
 import streamlit as st
-#import matplotlib.pyplot as plt
 import distributions
 import montecarlo
 import pandas as pd
@@ -14,16 +13,14 @@ count_dist_name = st.selectbox(
         ["Poisson", "Negative Binomial"]
     )
 
-#st.subheader("Claim Count Distribution Parameters")
 if count_dist_name == "Poisson":
     mean = st.number_input("Mean (λ)", value=7, step=1)
 if count_dist_name == "Negative Binomial":
     beta = st.number_input("Beta", value=3, step=.5)
     r = st.number_input("r", value=8, step=.5)
 
-# Subheader
-st.subheader("Claim Severity Distribution") 
 # Get severity distribution from user
+st.subheader("Claim Severity Distribution") 
 sev_dist_name = st.selectbox(
         "Choose a severity distribution:",
         ["Weibull", "Pareto", "Lognormal"]
@@ -38,10 +35,10 @@ elif sev_dist_name == "Lognormal":
     mu = st.number_input("Mean", value=7.0, step=.5)
     sd = st.number_input("Standard Deviation", value=0.4, step=.1)
 
-# SampleSize
+# Get sampleSize
 SampleSize = st.number_input("Number of simulated losses", value=100000, min_value=1, step=50000)
 
-# Run simulation button
+# Run simulatiom
 if st.button("Run Simulation"):
     # Establish claim count distribution class
     if count_dist_name == "Poisson":
@@ -60,27 +57,33 @@ if st.button("Run Simulation"):
     # Run the Simulation
     aggClaimDict = {}
     
+    # Utilize progress bar to keep user entertained
     with st.spinner("Running simulation..."):
         progress = st.progress(0)
         for i in range(SampleSize):
+            # Get a random aggregate claim amount
             tempClaims = montecarlo.aggregateClaims(count, sev)
+            
+            # Update dictionary
             if tempClaims in aggClaimDict:
                 aggClaimDict[tempClaims] += 1
             else:
                 aggClaimDict[tempClaims] = 1
+            
+            # Update progress bar
             if i % 1000 == 0:
                 progress.progress(i / SampleSize)
+        # Sort aggregate claim dict
         aggClaimDict = dict(sorted(aggClaimDict.items()))
         progress.progress(100)
     st.success("Simulation Complete")
     
     # Calculate and display mean and mode
     mean, mode = montecarlo.calculateMeanMode(aggClaimDict, SampleSize)
-
-
     st.write("Mean Aggregate Claim: " + str(round(mean,4)))
     st.write("Mode: " + str(mode))
 
+    # Claculate VaR, TVaR from the dict
     VaR_data = {}
     with st.spinner("Calculating value at risk..."):
         # Calculate VaR for p = 0.9
@@ -105,26 +108,21 @@ if st.button("Run Simulation"):
                 "VaR":[str(VaR_90),str(VaR_95),str(VaR_99),str(VaR_995)],
                 "TVaR":[str(round(TVaR_90,2)),str(round(TVaR_95,2)),str(round(TVaR_99,2)),str(round(TVaR_995,2))]
             }
+    # Display VaR table
     st.success("Calculations Complete")
     st.table(VaR_data)
 
-    # Display Graph
+    # Create arrays for the graph
     x = aggClaimDict.keys()
     y = [y/SampleSize for y in aggClaimDict.values()]
     
+    # Construct data frame
     data = pd.DataFrame({
         'x': x,
         'y': y
         })
+    # Create a scatter plot and bar chart
     st.write("Scatter Plot")
     st.scatter_chart(data, x='x', y='y', x_label="Aggregate Claim Amount", y_label="Frequency")
     st.write("Bar Chart")
     st.bar_chart(data, x='x', y='y', x_label="Aggregate Claim Amount", y_label="Frequency", stack=True)
-    #fig, ax = plt.subplots()
-    #ax.plot(x, y)
-    #ax.set_title("Plot of aggregate losses by frequency")
-    #ax.set_xlabel("Aggregate Claim Amount")
-    #ax.set_ylabel("Frequency")
-    
-    #st.pyplot(fig)
-
